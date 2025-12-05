@@ -1,0 +1,8 @@
+google-generativeai
+finance-datareader
+python-telegram-bot
+requests
+python-dotenv
+schedule
+beautifulsoup4
+plotly
