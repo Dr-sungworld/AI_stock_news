@@ -1,4 +1,4 @@
-import google.generativeai as genai
+import requests
 import json
 import os
 from config import GEMINI_API_KEY
@@ -7,24 +7,49 @@ from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-pro')
+# Use REST API directly to avoid Python 3.8 SDK compatibility issues
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+
+def _call_gemini_api(prompt):
+    if not GEMINI_API_KEY:
+        logger.error("GEMINI_API_KEY is missing.")
+        return None
+        
+    headers = {
+        "Content-Type": "application/json"
+    }
+    params = {
+        "key": GEMINI_API_KEY
+    }
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }]
+    }
+    
+    try:
+        response = requests.post(GEMINI_API_URL, headers=headers, params=params, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        
+        # Parse Response
+        # Structure: candidates[0].content.parts[0].text
+        if "candidates" in result and result["candidates"]:
+            content = result["candidates"][0]["content"]["parts"][0]["text"]
+            return content
+        else:
+            logger.warning(f"Empty or unexpected response from Gemini: {result}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error calling Gemini API: {e}")
+        if response is not None:
+             logger.error(f"Response: {response.text}")
+        return None
 
 def analyze_news(news_item):
     """
     Analyzes news for importance, themes, and historical context.
-    
-    Args:
-        news_item (dict): Contains 'title', 'snippet', 'link', 'date' from Serper.
-        
-    Returns:
-        dict: {
-            "importance": "High/Mid/Low",
-            "reason": "...",
-            "themes": ["Theme A", "Theme B"],
-            "historical_reaction": "...",
-            "original_news": news_item
-        }
     """
     try:
         title = news_item.get('title', '')
@@ -41,7 +66,7 @@ def analyze_news(news_item):
         2. Extract 2-3 key Theme Stocks or Sectors.
         3. Formulate a search query to find similar PAST events and their market reaction (e.g., "Apple iPhone launch stock price history").
         
-        Output JSON format:
+        Output JSON format ONLY:
         {{
             "importance": "High/Mid/Low",
             "reason": "Brief reason...",
@@ -50,10 +75,12 @@ def analyze_news(news_item):
         }}
         """
         
-        response_1 = model.generate_content(prompt_1)
-        # Simple extraction - specialized JSON parsing might be needed for production
-        # Assuming Gemini follows instruction well.
-        cleaned_text = response_1.text.replace('`json', '').replace('`', '')
+        raw_text_1 = _call_gemini_api(prompt_1)
+        if not raw_text_1:
+            return None
+            
+        # Clean JSON
+        cleaned_text = raw_text_1.replace('`json', '').replace('`', '').strip()
         analysis = json.loads(cleaned_text)
         
         if analysis.get('importance') == 'Low':
@@ -83,8 +110,9 @@ def analyze_news(news_item):
             Briefly summarize how the market reacted to such events in the past.
             """
             
-            response_2 = model.generate_content(prompt_2)
-            historical_reaction = response_2.text
+            historical_reaction = _call_gemini_api(prompt_2)
+            if not historical_reaction:
+                historical_reaction = "Failed to summarize history."
         else:
             historical_reaction = "No historical context found."
             
