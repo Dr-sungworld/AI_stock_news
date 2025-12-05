@@ -1,0 +1,14 @@
+schedule
+requests
+python-dotenv
+google-generativeai
+finance-datareader
+fastapi
+uvicorn
+mplfinance
+beautifulsoup4
+python-telegram-bot
+requests
+python-dotenv
+schedule
+beautifulsoup4

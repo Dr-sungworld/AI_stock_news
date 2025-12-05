@@ -1,0 +1,12 @@
+[
+    {
+        "ticker": "005930",
+        "market": "KRX",
+        "name": "Samsung Electronics"
+    },
+    {
+        "ticker": "TSLA",
+        "market": "US",
+        "name": "Tesla"
+    }
+]
